@@ -1,24 +1,30 @@
+This is forked from [adaugherity/zfs-backup](https://github.com/adaugherity/zfs-backup), and has been modified to work with *ubuntu-zfs* (ZFS on Linux) on Ubuntu 14.10.
+
 This is a backup script to replicate a ZFS filesystem and its children to
 another server via zfs snapshots and zfs send/receive over ssh.  It was
 developed on Solaris 10 but should run with minor modification on other
 platforms with ZFS support.
 
-It supplements zfs-auto-snapshot, but runs independently.  I prefer that
+It supplements [zfs-auto-snapshot](https://github.com/zfsonlinux/zfs-auto-snapshot), but runs independently.  I prefer that
 snapshots continue to be taken even if the backup fails.  It does not
 necessarily require that package -- anything that regularly generates
 snapshots that follow a given pattern will suffice.
 
-Command-line options:
+### Command-line options
+```
   -n		debug/dry-run mode
   -v		verbose mode
   -f file	specify a configuration file
   -r N		use the Nth most recent local snapshot rather than the newest
   -h, -?	display help message
+```
 
-
-Basic installation: After following the prerequisites, run manually to verify
+### Basic installation
+After following the prerequisites, run manually to verify
 operation, and then add a line like the following to zfssnap's crontab:
+```
 30 * * * * /path/to/zfs-backup.sh [ options ]
+```
 (This for an hourly sync -- adjust accordingly if you only want to back up
 daily, etc.  zfs-backup now supports commandline options and configuration
 files, so you can schedule different cron jobs with different config files,
@@ -35,7 +41,7 @@ zfs-auto-snapshot, namely:
   present locally so you don't have to worry about manually removing
   old snapshots there.
 
-PREREQUISITES:
+### PREREQUISITES
 1. zfs-auto-snapshot or equivalent package installed locally and regular
   snapshots enabled (hourly, daily, etc.)
 2. home directory set for zfssnap role (the user taking snapshots and doing
@@ -54,15 +60,16 @@ PREREQUISITES:
   as share, sharenfs, hold, etc.
 5. an initial (full) zfs send/receive done so that remhost has the fs we
   are backing up, and the associated snapshots -- something like:
+```
   zfs send -R $POOL/$FS@zfs-auto-snap_daily-(latest) | ssh $REMUSER@$REMHOST zfs recv -dvF $REMPOOL
+```
   Note: 'zfs send -R' will send *all* snapshots associated with a dataset, so
   if you wish to purge old snapshots, do that first.
 6. zfs allow any additional permissions needed, to fix any errors produced in step 5
 7. configure the TAG/PROP/REMUSER/REMHOST/REMPOOL variables in this script or in a config file
-8. zfs set $PROP={ fullpath | basename } pool/fs
-  for each FS or volume you wish to back up.
+8. `zfs set $PROP={ fullpath | basename } pool/fs` for each FS or volume you wish to back up.
 
-PROPERTY VALUES:
+#### PROPERTY VALUES
 Given the hierarchy pool/a/b,
 * with 'fullpath' (zfs recv -d), this is replicated to backupserver:backuppool/a/b
 * with 'basename' (zfs recv -e), this is replicated to backupserver:backuppool/b
@@ -72,9 +79,10 @@ Given the hierarchy pool/a/b,
 If this backup is not run for a long enough period that the newest
 remote snapshot has been removed locally, manually run an incremental
 zfs send/recv to bring it up to date, a la
-  zfs send -I zfs-auto-snap_daily-(latest on remote) -R $POOL/$FS@zfs-auto-snap_daily-(latest local) |
-      ssh $REMUSER@REMHOST zfs recv -dvF $REMPOOL
-It's probably best to do a dry-run first (zfs recv -ndvF).
+```
+  zfs send -I zfs-auto-snap_daily-(latest on remote) -R $POOL/$FS@zfs-auto-snap_daily-(latest local) | ssh $REMUSER@REMHOST zfs recv -dvF $REMPOOL
+```
+It's probably best to do a dry-run first `zfs recv -ndvF`.
 
 Note: I use daily snapshots in these manual send/recv examples because
 it is less likely that the snapshot you are using will be rotated out
@@ -87,10 +95,9 @@ snapshots, possibly in combination with the -r option (Nth most recent) to
 avoid short-lived snapshots (e.g. hourly) being rotated out in the middle
 of your sync.  This is a good use case for an alternate configuration file.
 
-
-PROCEDURE:
-  * find newest local hourly snapshot
-  * find newest remote hourly snapshot (via ssh)
-  * check that both $newest_local and $latest_remote snaps exist locally
-  * zfs send incremental (-I) from $newest_remote to $latest_local to dsthost
-  * if anything fails, set svc to maint. and exit
+### PROCEDURE
+* find newest local hourly snapshot
+* find newest remote hourly snapshot (via ssh)
+* check that both `$newest_local` and `$latest_remote` snaps exist locally
+* zfs send incremental (-I) from `$newest_remote` to `$latest_local` to dsthost
+* if anything fails, set svc to maint. and exit

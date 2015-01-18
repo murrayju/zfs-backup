@@ -1,5 +1,5 @@
-#!/usr/bin/env ksh
-# /usr/xpg4/bin/sh and /bin/bash also work; /bin/sh does not
+#!/bin/bash
+# /usr/xpg4/bin/sh and /usr/bin/env ksh also work; /bin/sh does not
 
 # backup script to replicate a ZFS filesystem and its children to another
 # server via zfs snapshots and zfs send/receive
@@ -63,19 +63,20 @@ VERBOSE=""		# "-v" for verbose, null string for quiet
 LOCK="/var/tmp/zfsbackup.lock"
 PID="/var/tmp/zfsbackup.pid"
 CFG="/var/lib/zfssnap/zfs-backup.cfg"
-ZFS="/usr/sbin/zfs"
+ZFS="/sbin/zfs"
 # Replace with sudo(8) if pfexec(1) is not available on your OS
 PFEXEC=`which pfexec`
 
 # local settings -- datasets to back up are now found by property
 TAG="zfs-auto-snap_daily"
-PROP="edu.tamu:backuptarget"
+PROP="murrayju:backuptarget"
 # remote settings (on destination host)
 REMUSER="zfsbak"
 # special case: when $REMHOST=localhost, ssh is bypassed
 REMHOST="backupserver.my.domain"
-REMPOOL="backuppool"
-REMZFS="/usr/sbin/zfs"
+REMPORT="22"
+REMPOOL="tank"
+REMZFS="/sbin/zfs"
 
 
 usage() {
@@ -138,7 +139,7 @@ if [ -z "$RECENT" ]; then RECENT=0; fi
 if [ "$REMHOST" = "localhost" ]; then
     REMZFS_CMD="$ZFS"
 else
-    REMZFS_CMD="ssh $REMUSER@$REMHOST $REMZFS"
+    REMZFS_CMD="ssh $REMUSER@$REMHOST -p $REMPORT $REMZFS"
 fi
 
 # Usage: do_backup pool/fs/to/backup receive_option
@@ -190,7 +191,7 @@ do_backup() {
 	# ssh needs public key auth configured beforehand
 	# Not using $REMZFS_CMD because we need 'ssh -n' here, but must not use
 	# 'ssh -n' for the actual zfs recv.
-	newest_remote="$(ssh -n $REMUSER@$REMHOST $REMZFS list -t snapshot -H -S creation -o name -d 1 $TARGET | grep $TAG | head -1)"
+	newest_remote="$(ssh -n $REMUSER@$REMHOST -p $REMPORT $REMZFS list -t snapshot -H -S creation -o name -d 1 $TARGET | grep $TAG | head -1)"
 	err_msg="Error fetching remote snapshot listing via ssh to $REMUSER@$REMHOST."
     fi
     if [ -z $newest_remote ]; then
@@ -235,10 +236,10 @@ do_backup() {
     fi
 
     if [ $DEBUG ]; then
-	echo "would run: $PFEXEC $ZFS send -R -I $snap1 $DATASET@$snap2 |"
+	echo "would run: $PFEXEC $ZFS send $VERBOSE -R -I $snap1 $DATASET@$snap2 |"
 	echo "  $REMZFS_CMD recv $VERBOSE $RECV_OPT -F $REMPOOL"
     else
-	if ! $PFEXEC $ZFS send -R -I $snap1 $DATASET@$snap2 | \
+	if ! $PFEXEC $ZFS send $VERBOSE -R -I $snap1 $DATASET@$snap2 | \
 	  $REMZFS_CMD recv $VERBOSE $RECV_OPT -F $REMPOOL; then
 	    echo 1>&2 "Error sending snapshot."
 	    touch $LOCK
