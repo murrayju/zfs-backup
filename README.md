@@ -1,4 +1,4 @@
-This is forked from [adaugherity/zfs-backup](https://github.com/adaugherity/zfs-backup), and has been modified to work with *ubuntu-zfs* (ZFS on Linux) on Ubuntu 14.10.
+This is forked from [adaugherity/zfs-backup](https://github.com/adaugherity/zfs-backup), and has been modified to work with [ubuntu-zfs](https://launchpad.net/~zfs-native/+archive/ubuntu/stable) ([ZFS on Linux](http://zfsonlinux.org/)) on Ubuntu 14.10+.
 
 This is a backup script to replicate a ZFS filesystem and its children to
 another server via zfs snapshots and zfs send/receive over ssh.  It was
@@ -12,18 +12,18 @@ snapshots that follow a given pattern will suffice.
 
 ### Command-line options
 ```
-  -n		debug/dry-run mode
-  -v		verbose mode
-  -f file	specify a configuration file
-  -r N		use the Nth most recent local snapshot rather than the newest
-  -h, -?	display help message
+-n		debug/dry-run mode
+-v		verbose mode
+-f file	specify a configuration file
+-r N		use the Nth most recent local snapshot rather than the newest
+-h, -?	display help message
 ```
 
 ### Basic installation
 After following the prerequisites, run manually to verify
 operation, and then add a line like the following to zfssnap's crontab:
 ```
-30 * * * * /path/to/zfs-backup.sh [ options ]
+30 * * * * /path/to/zfs-backup.sh -f /path/to/file.cfg
 ```
 (This for an hourly sync -- adjust accordingly if you only want to back up
 daily, etc.  zfs-backup now supports commandline options and configuration
@@ -54,17 +54,17 @@ zfs-auto-snapshot, namely:
   remhost.  Test that key-based ssh works:
   $ ssh remuser@remhost
 4. zfs allow done for remuser on remhost:
-  # zfs allow remuser atime,create,destroy,mount,mountpoint,receive,rollback,snapshot,userprop backuppool/fs
-  This can be done on a top-level filesystem, and is inherited by default.
-  Depending on your usage, you may need to also allow further permissions such
-  as share, sharenfs, hold, etc.
-5. an initial (full) zfs send/receive done so that remhost has the fs we
-  are backing up, and the associated snapshots -- something like:
-```
+  
+  ```
+  zfs allow remuser atime,create,destroy,mount,mountpoint,receive,rollback,snapshot,userprop backuppool/fs
+  ```
+  This can be done on a top-level filesystem, and is inherited by default. Depending on your usage, you may need to also allow further permissions such as share, sharenfs, hold, etc.
+5. an initial (full) zfs send/receive done so that remhost has the fs we are backing up, and the associated snapshots -- something like:
+
+  ```
   zfs send -R $POOL/$FS@zfs-auto-snap_daily-(latest) | ssh $REMUSER@$REMHOST zfs recv -dvF $REMPOOL
-```
-  Note: 'zfs send -R' will send *all* snapshots associated with a dataset, so
-  if you wish to purge old snapshots, do that first.
+  ```
+  Note: 'zfs send -R' will send *all* snapshots associated with a dataset, so if you wish to purge old snapshots, do that first.
 6. zfs allow any additional permissions needed, to fix any errors produced in step 5
 7. configure the TAG/PROP/REMUSER/REMHOST/REMPOOL variables in this script or in a config file
 8. `zfs set $PROP={ fullpath | basename } pool/fs` for each FS or volume you wish to back up.
